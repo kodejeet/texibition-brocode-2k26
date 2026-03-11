@@ -1,75 +1,127 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  type ReactNode,
+} from "react";
+import api from "../lib/apiClient";
+import { useBackendAuth } from "../lib/useBackendAuth";
 
 export type Subscription = {
   id: string;
   name: string;
   price: number;
-  currency: string;
+  currency?: string;
   renewalDate: string;
   notifyBeforeDays: number;
+  daysUntilRenewal?: number;
   notes?: string;
 };
 
 type SubscriptionContextType = {
   subscriptions: Subscription[];
-  addSubscription: (sub: Omit<Subscription, 'id'>) => void;
-  updateSubscription: (id: string, sub: Partial<Subscription>) => void;
-  deleteSubscription: (id: string) => void;
+  totalMonthlySpend: number;
+  loading: boolean;
+  error: string | null;
+  loadSubscriptions: () => Promise<void>;
+  addSubscription: (sub: Omit<Subscription, "id">) => Promise<void>;
+  updateSubscription: (id: string, sub: Partial<Subscription>) => Promise<void>;
+  deleteSubscription: (id: string) => Promise<void>;
 };
 
-const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
-
-// Initial mock data based on AGENTS.md example
-const initialData: Subscription[] = [
-  {
-    id: '1',
-    name: "Netflix",
-    price: 499,
-    currency: "INR",
-    renewalDate: new Date(new Date().setDate(new Date().getDate() + 10)).toISOString().split('T')[0], // 10 days from now
-    notifyBeforeDays: 3
-  },
-  {
-    id: '2',
-    name: "Gym Membership",
-    price: 1500,
-    currency: "INR",
-    renewalDate: new Date(new Date().setDate(new Date().getDate() + 2)).toISOString().split('T')[0], // 2 days from now
-    notifyBeforeDays: 5
-  },
-  {
-    id: '3',
-    name: "Spotify Premium",
-    price: 119,
-    currency: "INR",
-    renewalDate: new Date(new Date().setDate(new Date().getDate() + 15)).toISOString().split('T')[0], // 15 days from now
-    notifyBeforeDays: 2
-  }
-];
+const SubscriptionContext = createContext<SubscriptionContextType | undefined>(
+  undefined
+);
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>(initialData);
+  const { isBackendReady } = useBackendAuth();
 
-  const addSubscription = (sub: Omit<Subscription, 'id'>) => {
-    const newSub = {
-      ...sub,
-      id: Math.random().toString(36).substring(2, 9),
-    };
-    setSubscriptions(prev => [...prev, newSub]);
-  };
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [totalMonthlySpend, setTotalMonthlySpend] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const updateSubscription = (id: string, updatedFields: Partial<Subscription>) => {
-    setSubscriptions(prev => 
-      prev.map(sub => sub.id === id ? { ...sub, ...updatedFields } : sub)
-    );
-  };
+  // ── Fetch all subscriptions from backend ──
+  const loadSubscriptions = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get("/subscriptions");
+      const data = res.data.data;
+      setSubscriptions(data.subscriptions ?? []);
+      setTotalMonthlySpend(data.totalMonthlySpend ?? 0);
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "response" in err
+          ? ((err as { response?: { data?: { error?: string } } }).response?.data?.error ?? "Failed to load subscriptions")
+          : "Failed to load subscriptions";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const deleteSubscription = (id: string) => {
-    setSubscriptions(prev => prev.filter(sub => sub.id !== id));
-  };
+  // Auto-load when backend is ready
+  useEffect(() => {
+    if (isBackendReady) {
+      loadSubscriptions();
+    }
+  }, [isBackendReady, loadSubscriptions]);
+
+  // ── Create ──
+  const addSubscription = useCallback(
+    async (sub: Omit<Subscription, "id">) => {
+      try {
+        await api.post("/subscriptions", sub);
+        await loadSubscriptions(); // refresh list
+      } catch {
+        setError("Failed to add subscription");
+      }
+    },
+    [loadSubscriptions]
+  );
+
+  // ── Update ──
+  const updateSubscription = useCallback(
+    async (id: string, updatedFields: Partial<Subscription>) => {
+      try {
+        await api.put(`/subscriptions/${id}`, updatedFields);
+        await loadSubscriptions(); // refresh list
+      } catch {
+        setError("Failed to update subscription");
+      }
+    },
+    [loadSubscriptions]
+  );
+
+  // ── Delete ──
+  const deleteSubscription = useCallback(
+    async (id: string) => {
+      try {
+        await api.delete(`/subscriptions/${id}`);
+        await loadSubscriptions(); // refresh list
+      } catch {
+        setError("Failed to delete subscription");
+      }
+    },
+    [loadSubscriptions]
+  );
 
   return (
-    <SubscriptionContext.Provider value={{ subscriptions, addSubscription, updateSubscription, deleteSubscription }}>
+    <SubscriptionContext.Provider
+      value={{
+        subscriptions,
+        totalMonthlySpend,
+        loading,
+        error,
+        loadSubscriptions,
+        addSubscription,
+        updateSubscription,
+        deleteSubscription,
+      }}
+    >
       {children}
     </SubscriptionContext.Provider>
   );
@@ -78,7 +130,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 export function useSubscriptions() {
   const context = useContext(SubscriptionContext);
   if (context === undefined) {
-    throw new Error('useSubscriptions must be used within a SubscriptionProvider');
+    throw new Error(
+      "useSubscriptions must be used within a SubscriptionProvider"
+    );
   }
   return context;
 }

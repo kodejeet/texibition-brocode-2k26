@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import { SubscriptionProvider } from './context/SubscriptionContext';
+import { BackendAuthProvider } from './lib/useBackendAuth';
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -16,18 +17,20 @@ if (!clerkPubKey) {
 function App() {
   return (
     <ClerkProvider publishableKey={clerkPubKey}>
-      <SubscriptionProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route element={<Layout />}>
-              <Route path="/" element={<Landing />} />
-              <Route path="/login/*" element={<Login />} />
-              <Route path="/signup/*" element={<Signup />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </SubscriptionProvider>
+      <BackendAuthProvider>
+        <SubscriptionProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route path="/" element={<Landing />} />
+                <Route path="/login/*" element={<Login />} />
+                <Route path="/signup/*" element={<Signup />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </SubscriptionProvider>
+      </BackendAuthProvider>
     </ClerkProvider>
   )
 }
