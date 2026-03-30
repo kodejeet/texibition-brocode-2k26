@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import authRoutes from "./routes/auth";
@@ -5,7 +6,7 @@ import subscriptionRoutes from "./routes/subscriptions";
 import alertRoutes from "./routes/alerts";
 
 const app = express();
-const PORT = 8000;
+const PORT = process.env.PORT || 8000;
 
 // ── Middleware ──
 app.use(cors());

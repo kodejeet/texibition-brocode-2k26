@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useSubscriptions, type Subscription } from '../context/SubscriptionContext';
+import { useSubscriptions } from '../context/useSubscriptions';
+import type { Subscription } from '../context/SubscriptionContext';
 import { Plus, Wallet, CalendarDays, Activity, Trash2, Edit2, AlertCircle, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import SubscriptionModal from '../components/SubscriptionModal';

@@ -1,14 +1,14 @@
-import { useEffect, useState, useCallback, createContext, useContext, type ReactNode } from "react";
+import React, { useEffect, useState, useCallback, useContext, type ReactNode } from "react";
 import { useUser, useAuth } from "@clerk/clerk-react";
 import api, { setBackendToken, clearBackendToken, getBackendToken } from "./apiClient";
 
-type BackendAuthState = {
+export type BackendAuthState = {
     backendToken: string | null;
     isBackendReady: boolean;
     error: string | null;
 };
 
-const BackendAuthContext = createContext<BackendAuthState>({
+export const BackendAuthContext = React.createContext<BackendAuthState>({
     backendToken: null,
     isBackendReady: false,
     error: null,
@@ -24,11 +24,11 @@ export function BackendAuthProvider({ children }: { children: ReactNode }) {
     const { user, isLoaded: isUserLoaded } = useUser();
     const { isSignedIn } = useAuth();
 
-    const [state, setState] = useState<BackendAuthState>({
+    const [state, setState] = useState<BackendAuthState>(() => ({
         backendToken: getBackendToken(),
         isBackendReady: !!getBackendToken(),
         error: null,
-    });
+    }));
 
     const syncWithBackend = useCallback(async (email: string, clerkUserId: string) => {
         // Use the Clerk userId as a deterministic password
@@ -77,14 +77,20 @@ export function BackendAuthProvider({ children }: { children: ReactNode }) {
         // User signed out — clear backend token
         if (!isSignedIn || !user) {
             clearBackendToken();
-            setState({ backendToken: null, isBackendReady: false, error: null });
-            return;
+            // Use a timeout to avoid setting state during effect
+            const timer = setTimeout(() => {
+                setState({ backendToken: null, isBackendReady: false, error: null });
+            }, 0);
+            return () => clearTimeout(timer);
         }
 
         // If we already have a token, we're good
         if (getBackendToken()) {
-            setState((prev) => ({ ...prev, isBackendReady: true }));
-            return;
+            // Use a timeout to avoid setting state during effect
+            const timer = setTimeout(() => {
+                setState((prev) => ({ ...prev, isBackendReady: true }));
+            }, 0);
+            return () => clearTimeout(timer);
         }
 
         // Sync with backend
@@ -95,10 +101,10 @@ export function BackendAuthProvider({ children }: { children: ReactNode }) {
     }, [isUserLoaded, isSignedIn, user, syncWithBackend]);
 
     return (
-        <BackendAuthContext.Provider value= { state } >
-        { children }
+        <BackendAuthContext.Provider value={state}>
+            {children}
         </BackendAuthContext.Provider>
-  );
+    );
 }
 
 /**

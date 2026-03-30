@@ -1,6 +1,5 @@
 import {
   createContext,
-  useContext,
   useState,
   useEffect,
   useCallback,
@@ -31,7 +30,7 @@ type SubscriptionContextType = {
   deleteSubscription: (id: string) => Promise<void>;
 };
 
-const SubscriptionContext = createContext<SubscriptionContextType | undefined>(
+export const SubscriptionContext = createContext<SubscriptionContextType | undefined>(
   undefined
 );
 
@@ -125,14 +124,4 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       {children}
     </SubscriptionContext.Provider>
   );
-}
-
-export function useSubscriptions() {
-  const context = useContext(SubscriptionContext);
-  if (context === undefined) {
-    throw new Error(
-      "useSubscriptions must be used within a SubscriptionProvider"
-    );
-  }
-  return context;
 }
